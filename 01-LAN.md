@@ -256,4 +256,104 @@ g0/0/2第二次漂移error down
 	增加路由
 	[LSW1]int vlan 200
 	[LSW1-Vlanif200]ip add 200.1.1.254 24
+
+
+
+**MUX VLAN**
+
+![](https://raw.githubusercontent.com/xujinhui1995/IE/main/image/20201113161921.png)
+
+	创建vlan
+	[LSW1]vlan batch 10 20 100
+	配置主vlan及separate vlan、group vlan
+	[LSW1-vlan100]mux-vlan
+	[LSW1-vlan100]subordinate separate 10
+	[LSW1-vlan100]subordinate group 20
+
+	划分接口
+	[LSW1-Ethernet0/0/4]port link-type access
+	[LSW1-Ethernet0/0/4]port default vlan 100
+	[LSW1-Ethernet0/0/4]port mux-vlan enable
+
+	[LSW1-Ethernet0/0/1]port link-type access
+	[LSW1-Ethernet0/0/1]port default vlan 10
+	[LSW1-Ethernet0/0/1]port mux-vlan enable
+	[LSW1-Ethernet0/0/2]port link-type access
+	[LSW1-Ethernet0/0/2]port default vlan 20
+	[LSW1-Ethernet0/0/2]port mux-vlan enable
+	[LSW1-Ethernet0/0/3]port link-type access
+	[LSW1-Ethernet0/0/3]port default vlan 20
+	[LSW1-Ethernet0/0/3]port mux-vlan enable
+
+![](https://raw.githubusercontent.com/xujinhui1995/IE/main/image/20201113162630.png)
+
+
+**Eth-trunk**
+
+	手动配置
+	[LSW1]interface Eth-Trunk 1
+	[LSW1-Eth-Trunk1]trunkport GigabitEthernet 0/0/10 to 0/0/12
+	[LSW2]interface Eth-Trunk 1
+	[LSW2-Eth-Trunk1]trunkport GigabitEthernet 0/0/10 to 0/0/12
+
+![](https://raw.githubusercontent.com/xujinhui1995/IE/main/image/20201113170009.png)
+
+	取消手动配置
+	[LSW1-GigabitEthernet0/0/10]undo eth-trunk
+	[LSW1-GigabitEthernet0/0/11]undo eth-trunk
+	[LSW1-GigabitEthernet0/0/12]undo eth-trunk
+	[LSW2-GigabitEthernet0/0/10]undo eth-trunk
+	[LSW2-GigabitEthernet0/0/11]undo eth-trunk
+	[LSW2-GigabitEthernet0/0/12]undo eth-trunk
+
+	配置自动
+	[LSW1]interface Eth-Trunk 10
+	[LSW1-Eth-Trunk10]mode lacp-static
+	[LSW1-Eth-Trunk10]trunkport GigabitEthernet 0/0/10 to 0/0/12
+	[LSW2]interface Eth-Trunk 10
+	[LSW2-Eth-Trunk10]mode lacp-static
+	[LSW2-Eth-Trunk10]trunkport GigabitEthernet 0/0/10 to 0/0/12
+
+	
+![](https://raw.githubusercontent.com/xujinhui1995/IE/main/image/20201113170701.png)
+
+
+	修改负载均衡方式（单方面修改）
+	[LSW1-Eth-Trunk10]load-balance src-dst-mac
+
+![](https://raw.githubusercontent.com/xujinhui1995/IE/main/image/20201113171133.png)
+
+	修改主从关系（值越小越高）
+	[LSW1]lacp priority 10000
+
+![](https://raw.githubusercontent.com/xujinhui1995/IE/main/image/20201113171257.png)
+
+	最大线路数改为2
+	[LSW1-Eth-Trunk10]max active-linknumber 2
+
+![](https://raw.githubusercontent.com/xujinhui1995/IE/main/image/20201113171428.png)
+
+	修改线路权限
+	[LSW1-GigabitEthernet0/0/11]lacp priority 1000
+	[LSW1-GigabitEthernet0/0/12]lacp priority 1000
+	[LSW2-GigabitEthernet0/0/10]lacp priority 1000
+	[LSW2-GigabitEthernet0/0/11]lacp priority 1000
+
+![](https://raw.githubusercontent.com/xujinhui1995/IE/main/image/20201113171619.png)
+
+	开放抢占
+	[LSW1-Eth-Trunk10]lacp preempt enable
+	[LSW1-Eth-Trunk10]lacp preempt delay 10
+
+![](https://raw.githubusercontent.com/xujinhui1995/IE/main/image/20201113171926.png)
+
+	存活更优先
+	[LSW1-GigabitEthernet0/0/12]shutdown
+
+![](https://raw.githubusercontent.com/xujinhui1995/IE/main/image/20201113172044.png)
+
+	复活后延迟10s抢占
+	[LSW1-GigabitEthernet0/0/12]undo shutdown
+
+![](https://raw.githubusercontent.com/xujinhui1995/IE/main/image/20201113172131.png)
 	
