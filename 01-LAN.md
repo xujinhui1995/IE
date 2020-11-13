@@ -81,3 +81,126 @@ g0/0/2第二次漂移error down
 30s后恢复
 
 ![](https://raw.githubusercontent.com/xujinhui1995/IE/main/image/20201113100225.png)
+
+**VLAN实验**
+
+![](https://raw.githubusercontent.com/xujinhui1995/IE/main/image/20201113103857.png)
+
+- 基于port端口划分vlan
+
+------------
+
+	[LSW1]vlan 10
+	[LSW1]vlan 20
+
+查看VLAN信息
+
+![](https://raw.githubusercontent.com/xujinhui1995/IE/main/image/20201113103624.png)
+
+	配置链路类型及缺省VLAN
+	[LSW1]interface e0/0/1
+	[LSW1-Ethernet0/0/1]port link-type access
+	[LSW1-Ethernet0/0/1]port default vlan 10
+	
+	[LSW1]interface e0/0/2
+	[LSW1-Ethernet0/0/2]port link-type access
+	[LSW1-Ethernet0/0/2]port default vlan 20
+
+查看所有接口vlan信息
+
+![](https://raw.githubusercontent.com/xujinhui1995/IE/main/image/20201113103833.png)
+
+- 基于MAC地址划分VLAN
+
+-------
+	将PC3划入VLAN10
+	[LSW2]vlan 10
+	[LSW2-vlan10]mac-vlan mac-address 5489-9835-52BD
+
+	接口开启mac vlan
+	[LSW2-Ethernet0/0/1]mac-vlan enable
+	[LSW2-Ethernet0/0/1]port hybrid untagged vlan 10
+
+	设置接口类型及允许通过的vlan
+	[LSW1-Ethernet0/0/10]port link-type trunk
+	[LSW1-Ethernet0/0/10]port trunk allow-pass vlan 10 20
+
+	[LSW2-Ethernet0/0/10]port link-type trunk
+	[LSW2-Ethernet0/0/10]port trunk allow-pass vlan 10 20
+
+
+- 基于IP子网划分VLAN
+
+-----------------------
+	
+	设置vlan子网，启用ip划分vlan，设置接口类型
+	[LSW2-vlan20]ip-subnet-vlan ip 1.1.2.0 24
+	[LSW2-Ethernet0/0/2]ip-subnet-vlan enable
+	[LSW2-Ethernet0/0/2]port hybrid untagged vlan 20 
+
+- 配置hybrid接口实现不同vlan间的访问
+
+	PC2、3、4由1.1.1.0/24修改为1.1.0.0/16网段
+	
+	修改链路类型
+	[LSW1-Ethernet0/0/2]undo port default vlan
+	[LSW1-Ethernet0/0/2]port link-type hybrid
+	创建vlan
+	[LSW1]vlan 100
+	[LSW2]vlan 100
+	
+	修改所属vlan及允许通过vlan 
+	[LSW1-Ethernet0/0/2]port hybrid pvid vlan 100
+	[LSW1-Ethernet0/0/2]port hybrid untagged vlan 10 20 100
+	接口 允许pvid 100的vlan通过
+	[LSW2-Ethernet0/0/1]port hybrid untagged vlan 100
+	[LSW2-Ethernet0/0/2]port hybrid untagged vlan 100
+	接口允许通过vlan 100
+	[LSW1-Ethernet0/0/10]port trunk allow-pass vlan 100
+	[LSW2-Ethernet0/0/10]port trunk allow-pass vlan 100
+
+
+
+**VLAN间路由**
+
+- 单臂路由
+
+---------
+
+	配置VLAN
+	[LSW1-Ethernet0/0/1]port link-type access
+	[LSW1-Ethernet0/0/1]port default vlan 10
+	[LSW1-Ethernet0/0/2]port link-type access
+	[LSW1-Ethernet0/0/2]port default vlan 20
+	[LSW1-Ethernet0/0/3]port link-type access
+	[LSW1-Ethernet0/0/3]port default vlan 30
+	[LSW1-Ethernet0/0/4]port link-type access
+	[LSW1-Ethernet0/0/4]port default vlan 30
+	
+	路由至交换机线路
+	[LSW1-Ethernet0/0/10]port link-type trunk
+	[LSW1-Ethernet0/0/10]port trunk allow-pass vlan 10 20
+
+	配置路由
+	[AR1]int g0/0/1.10
+	[AR1-GigabitEthernet0/0/1.10]dot1q termination vid 10
+	[AR1-GigabitEthernet0/0/1.10]arp broadcast enable
+	[AR1-GigabitEthernet0/0/1.10]ip add 1.1.1.254 24 
+	[AR1-GigabitEthernet0/0/1.10]int g0/0/1.20
+	[AR1-GigabitEthernet0/0/1.20]dot1q termination vid 20
+	[AR1-GigabitEthernet0/0/1.20]arp broadcast enable
+	[AR1-GigabitEthernet0/0/1.20]ip address 1.1.2.254 24
+
+
+- SVI
+
+---------
+
+	[LSW1]interface Vlanif 30
+	[LSW1-Vlanif30]ip address 1.1.3.254 24
+	[LSW1]interface Vlanif 40
+	[LSW1-Vlanif40]ip address 1.1.4.254 24
+
+接口UP条件：存在该VLAN、且该VLAN有活动接口
+
+![](https://raw.githubusercontent.com/xujinhui1995/IE/main/image/20201113143647.png)
