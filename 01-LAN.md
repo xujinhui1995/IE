@@ -163,6 +163,8 @@ g0/0/2第二次漂移error down
 
 **VLAN间路由**
 
+![](https://raw.githubusercontent.com/xujinhui1995/IE/main/image/20201113144208.png)
+
 - 单臂路由
 
 ---------
