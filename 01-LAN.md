@@ -140,6 +140,8 @@ g0/0/2第二次漂移error down
 
 - 配置hybrid接口实现不同vlan间的访问
 
+------
+
 	PC2、3、4由1.1.1.0/24修改为1.1.0.0/16网段
 	
 	修改链路类型
@@ -205,4 +207,53 @@ g0/0/2第二次漂移error down
 
 接口UP条件：存在该VLAN、且该VLAN有活动接口
 
-![](https://raw.githubusercontent.com/xujinhui1995/IE/main/image/20201113143647.png)
+![](https://raw.githubusercontent.com/xujinhui1995/IE/main/image/20201113143648.png)
+
+
+**VLAN聚合**
+
+![](https://raw.githubusercontent.com/xujinhui1995/IE/main/image/20201113155333.png)
+
+	创建VLAN，启用聚合，并设置access VLAN
+	[LSW1]vlan batch 10 20 100
+	[LSW1]vlan 100
+	[LSW1-vlan100]aggregate-vlan
+	[LSW1-vlan100]access-vlan 10 20
+
+	配置接口
+	[LSW1-GigabitEthernet0/0/1]port link-type access
+	[LSW1-GigabitEthernet0/0/1]port default vlan 10
+	[LSW1-GigabitEthernet0/0/2]port link-type access
+	[LSW1-GigabitEthernet0/0/2]port default vlan 20
+
+	配置网关
+	[LSW1]interface Vlanif 100
+	[LSW1-Vlanif100]ip address 100.1.1.254 24
+
+	设置代理
+	[LSW1-Vlanif100]arp-proxy inter-sub-vlan-proxy enable
+	配置接口
+	[LSW2-GigabitEthernet0/0/10]port link-type trunk
+	[LSW2-GigabitEthernet0/0/10]port trunk allow-pass vlan 10
+	配置接口
+	[LSW2-GigabitEthernet0/0/3]port link-type access
+	[LSW2-GigabitEthernet0/0/3]port default vlan 10
+
+不允许vlan100通过
+
+![](https://raw.githubusercontent.com/xujinhui1995/IE/main/image/20201113155256.png)
+
+
+	VLAN与super VLAN间路由
+	[LSW2]vlan 200
+	[LSW2-GigabitEthernet0/0/4]port link-type access
+	[LSW2-GigabitEthernet0/0/4]port default vlan 200
+
+	允许通信
+	[LSW2-GigabitEthernet0/0/10]port trunk allow-pass vlan 200
+	[LSW1-GigabitEthernet0/0/10]port trunk allow-pass vlan 200
+
+	增加路由
+	[LSW1]int vlan 200
+	[LSW1-Vlanif200]ip add 200.1.1.254 24
+	
