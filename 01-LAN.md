@@ -290,6 +290,8 @@ g0/0/2第二次漂移error down
 
 **Eth-trunk**
 
+![](https://raw.githubusercontent.com/xujinhui1995/IE/main/image/20201113172426.png)
+
 	手动配置
 	[LSW1]interface Eth-Trunk 1
 	[LSW1-Eth-Trunk1]trunkport GigabitEthernet 0/0/10 to 0/0/12
