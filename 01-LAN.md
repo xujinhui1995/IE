@@ -76,11 +76,11 @@ g0/0/1第一次漂移block了10s
 
 g0/0/2第二次漂移error down
 
-![](https://raw.githubusercontent.com/xujinhui1995/IE/main/image/20201113100225.png)
+![](https://raw.githubusercontent.com/xujinhui1995/IE/main/image/20201113100357.png)
 
 30s后恢复
 
-![](https://raw.githubusercontent.com/xujinhui1995/IE/main/image/20201113100225.png)
+![](https://raw.githubusercontent.com/xujinhui1995/IE/main/image/202011131004555.png)
 
 **VLAN实验**
 
@@ -179,7 +179,7 @@ g0/0/2第二次漂移error down
 	[LSW1-Ethernet0/0/3]port link-type access
 	[LSW1-Ethernet0/0/3]port default vlan 30
 	[LSW1-Ethernet0/0/4]port link-type access
-	[LSW1-Ethernet0/0/4]port default vlan 30
+	[LSW1-Ethernet0/0/4]port default vlan 40
 	
 	路由至交换机线路
 	[LSW1-Ethernet0/0/10]port link-type trunk
