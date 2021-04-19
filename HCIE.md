@@ -230,6 +230,97 @@ RFC中提出了三种跨域VPN解决方案，分别是：
     - 优点是配置简单：由于ASBR之间不需要运行MPLS，也不需要为跨域进行特殊配置。
     - 缺点是可扩展性差：由于ASBR需要管理所有VPN路由，为每个VPN创建VPN实例。这将导致ASBR上的VPN-IPv4路由数量过大。并且，由于ASBR间是普通的IP转发，要求为每个跨域的VPN使用不同的接口，从而提高了对PE设备的要求。如果跨越多个自治域，中间域必须支持VPN业务，不仅配置量大，而且对中间域影响大。在需要跨域的VPN数量比较少的情况，可以优先考虑使用。
 
+**跨域VPN-OptionB方式**
+
+- 跨域VPN-OptionB概述
+
+如[图4](http://localhost:7890/pages/DZG1127X/13/DZG1127X/13/resources/dc/images/fig_dc_fd_l3vpn_000704ar.png)所示，跨域VPN-OptionB中，两个ASBR通过MP-EBGP交换它们各自从AS的PE设备接收的标签VPN-IPv4路由。图中，VPN LSP表示私网隧道，LSP表示公网隧道。
+
+图4 跨域VPN-OptionB的组网图
+![](pics/fig_dc_fd_l3vpn_000704ar.png)
+
+跨域VPN-OptionB方案中，ASBR接收本域内和域外传过来的所有跨域VPN-IPv4路由，再把VPN-IPv路由发布出去。但MPLS VPN的基本实现中，PE上只保存与本地VPN实例的VPN Target相匹配的VPN路由。通过对标签VPN-IPv4路由进行特殊处理，让ASBR不进行VPN Target匹配把收到的VPN路由全部保存下来，而不管本地是否有和它匹配的VPN实例。
+
+这种方案的优点是所有的流量都经过ASBR转发，使流量具有良好的可控性，但ASBR的负担重。可以同时使用BGP的路由策略（如对RT的过滤），使ASBR上只保存部分VPN-IPv4路由。
+
+- 跨域VPN-OptionB的路由发布
+
+以[图5](http://localhost:7890/pages/DZG1127X/13/DZG1127X/13/resources/dc/images/fig_dc_fd_l3vpn_000705ar.png)为例说明路由发布过程。本例中，CE1将10.1.1.1/24的路由发布给CE2。NH表示下一跳，L1、L2和L3表示所携带的私网标签。图中省略了公网IGP路由和标签的分配。
+
+图5 跨域VPN-OptionB的路由信息发布
+![](pics/fig_dc_fd_l3vpn_000705ar.png)
+
+具体过程如下：
+
+1.CE1通过BGP、OSPF或RIP方式将路由发布给AS100内的PE1.
+
+2.AS100内的PE1先通过MP-IBGP方式把标签VPNv4路由发布给AS100的ASBR1，或发布给路由反射器RR（Router REflector），由RR反射给ASBR1。
+
+3.ASBR1通过MP-EBGP方式把标签VPNv4路由发布给ASBR2。由于MP-EBGP在传递路由时，需要改变路由的下一跳，ASBR1向外发布时给这些VPNv4路由信息分配新标签。
+
+4.ASBR2通过MP-IBGP方式把标签VPNv4路由发布给AS200内的PE3，或发布给RR，由RR反射给PE3.当ASBR2向域内的MP-IBGP对等体发布路由时，将下一跳改为自己。
+
+5.AS200内的PE3通过BGP、OSPF或RIP方式将路由发布给CE2。
+
+在ASBR1和ASBR2上都对VPNv4路由交换内层标签，域间的标签由BGP携带，因此ASBR之间不需要运行LDP（Label Distribution Protocol）或RSVP（Resource Reservation Protocol）等协议。
+
+- 跨域VPN-OptionB的报文转发
+
+在跨域VPN-OptionB方式的报文转发中，在两个ASBR上都要对VPN的LSP做一次交换。以LSP为公网隧道的报文转发流程如[图6](http://localhost:7890/pages/DZG1127X/13/DZG1127X/13/resources/dc/images/fig_dc_fd_l3vpn_000706ar.png)所示。其中，L1、L2和L3表示私网标签。Lx和Ly表示公网外层隧道标签。
+
+图6 跨域VPN-OptionB的报文转发
+![](pics/fig_dc_fd_l3vpn_000706ar.png)
+
+- 跨域VPN-OptionB的特点
+
+	- 不同于OptionA，OptionB方案不受ASBR之间互连链路数目的限制。
+	- 局限性：VPN的路由信息是通过AS之间的ASBR来保存和扩散的，当VPN路由较多时，ASBR负担重，容易造成故障点。因此在MP-EBGP方案中，需要维护VPN路由信息的ASBR一般不再负责公网IP转发。
+
+
+**跨域VPN-OptionC**
+
+- 跨域VPN-OptionC概述
+
+前面介绍的两种方式都能够满足跨域VPN的组网需求，但两种方式也都需要ASBR参与VPN-IPv4路由的维护和发布。当每个AS都有大量的VPN路由需要交换时，ASBR就很可能阻碍网络进一步的扩展。
+
+解决上述问题的方案是：ASBR不维护或发布VPN-IPv4路由，PE之间直接交换VPN-IPv4路由
+
+	- ASBR通过MP-IBGP向各自AS内的PE设备发布标签IPv4路由，并将到达本AS内PE的标签IPv4路由通告给它在对端AS的ASBR对等体，过渡AS中的ASBR也通告带标签的IPv4路由。这样，在入口PE和出口PE之间建立一条LSP；
+	- 不同AS的PE之间建立Multihop方式的EBGP连接，交换VPN-IPv4路由；
+	- ASBR上不保存VPN-IPv4路由，相互之间也不通告VPN-IPv4路由。
+
+[图7](http://localhost:7890/pages/DZG1127X/13/DZG1127X/13/resources/dc/images/fig_dc_fd_l3vpn_000707ar.png)为跨域VPN-OptionC的组网图，其中，VPN LSP表示私网隧道，LSP表示公网隧道。BGP LSP主要作用是两个PE之间相互交换Loopback信息，由两部分组成，例如图中从PE1到PE3方向建立BGP LSP1，PE3到PE1方向建立BGP LSP2。
+
+图7 跨域VPN-OptionC方式组网图
+![](pics/fig_dc_fd_l3vpn_000707ar.png)
+
+为提高可扩展性，可以再每个AS中指定一个路由反射器RR，由RR保存所有VPN-IPv4路由，与本AS内的PE交换VPN-IPv4路由信息。两个AS的RR之间建立MP-EBGP连接，通告VPN-IPv4路由。
+
+图8 采用RR的跨域VPN OptionC方式组网图
+![](pics/fig_dc_fd_l3vpn_000708ar.png)
+
+- 跨域VPN-OptionC的路由发布
+
+跨域VPN-OptionC关键实现是公网跨域隧道的建立。例如在CE1中有一条10.1.1.1/24的路由信息，其发布流程如[图9](http://localhost:7890/pages/DZG1127X/13/DZG1127X/13/resources/dc/images/fig_dc_fd_l3vpn_000709ar.png)所示。D表示目的地址，NH表示下一跳，L3表示所携带的私网标签，L9、L10表示BGP LSP的标签。图中省略了公网IGP路由和标签的分配。
+
+图9 跨域VPN-OptionC的路由发布
+![](pics/fig_dc_fd_l3vpn_000709ar.png)
+
+- 跨域VPN-OptionC的报文转发
+
+以LSP为公网隧道的报文转发流程如[图10](http://localhost:7890/pages/DZG1127X/13/DZG1127X/13/resources/dc/images/fig_dc_fd_l3vpn_000710ar.png)所示。其中，L3表示私网标签，L10和L9表示BGP LSP的标签，Lx和Ly表示域内公网外层隧道标签。
+
+图10 跨域VPN-OptionC的报文转发
+![](pics/fig_dc_fd_l3vpn_000710ar.png)
+
+报文从PE3向PE1转发时，需要在PE3上打上三层标签，分别为VPN路由的标签、BGP LSP的标签和公网LSP的标签。到ASBR2时，只剩两层标签，分别是VPN的路由标签和BGP LSP标签；进入ASBR1后，BGP LSP终结，之后就是普通的MPLS VPN的转发流程。
+
+- 跨域VPN-OptionC的特点
+
+	- VPN路由在入口PE和出口PE之间直接交换，不需要中间设备的保存和转发。
+	- VPN的路由信息只出现在PE设备上，而P和ASBR只负责报文的转发，似的中间域的设备可以不支持MPLS VPN业务，只需支持MPLS转发，ASBR设备不再成为性能瓶颈。因此跨域VPN-OptionC更适合在跨越多个AS时使用。
+	- 更适合支持MPLS VPN的负载分担。
+	- 缺点是维护一条端到端的PE连接管理代价较大。
 
 在华为MPLS网络中，IP前缀、二层链路等参数被用来定义一个转发等价类。
 
