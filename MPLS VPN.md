@@ -245,7 +245,253 @@ MPLS VPN 实验
 
 ![](pics/20210711182603.png)
 
+### PE与CE之间运行静态 ###
 
+- VRF配置指向CE的静态路由
+
+		#
+		ip route-static vpn-instance test 1.1.1.1 255.255.255.255 12.1.1.1
+		#
+
+- VRF内的BGP引入静态及直连（静态：传递给对端PE，直连：回包目的地址为直连地址）
+	
+
+		#
+		bgp 100
+		 #
+		 ipv4-family vpn-instance test 
+		  import-route direct
+		  import-route static
+		#
+- CE上配置默认路由或指向对端CE目的及直连接口地址
+
+		#
+		ip route-static 0.0.0.0 0.0.0.0 12.1.1.2
+		#
+
+### PE与CE之间运行ISIS ###
+
+![](pics/20210713190003.png)
+
+- CE配置并接口下使能ISIS
+	
+		#
+		isis 1
+		 is-level level-2
+		 cost-style wide
+		 network-entity 49.0001.0000.0000.0001.00
+		#                                         
+		interface GigabitEthernet0/0/0            
+		 isis enable 1                            
+		#                                                                                 
+		interface LoopBack0                       
+		 isis enable 1                            
+		#
+
+- VRF配置并做双向引入
+
+		#
+		isis 1 vpn-instance test
+		 is-level level-2
+		 cost-style wide
+		 network-entity 49.0001.0000.0000.0002.00
+		 import-route bgp 
+		#
+		bgp 100
+		 #
+		 ipv4-family vpn-instance test 
+		  import-route isis 1
+		#
+
+### PE与CE之间运行BGP ###
+
+主要解决CE客户端属于同一AS防环问题
+
+- PE上防环，重置为PE AS
+
+		#
+		bgp 100
+		 #
+		 ipv4-family vpn-instance test 
+		  peer 12.1.1.1 as-number 1 
+		  peer 12.1.1.1 substitute-as
+		#
+
+![](pics/20210713202823.png)
+
+- CE上防环，接受环路，默认3次
+
+		#
+		bgp 1
+		 peer 56.1.1.5 as-number 100 
+		 #
+		 ipv4-family unicast
+		  undo synchronization
+		  network 6.1.1.1 255.255.255.255 
+		  network 56.1.1.0 255.255.255.0 
+		  peer 56.1.1.5 enable
+		  peer 56.1.1.5 allow-as-loop
+		#
+
+![](pics/20210713202748.png)
+
+
+### Sham Link ###
+
+用于备份低速链路场景
+
+- 配置ospf接口（VRF内IP，可与PEIP重复）
+
+		#
+		interface LoopBack1
+		 ip binding vpn-instance test
+		 ip address 5.1.1.1 255.255.255.255 
+		#
+
+- 宣告进VPN，通过MP-BGP互通
+
+		#
+		 #
+		 ipv4-family vpn-instance test 
+		  network 5.1.1.1 255.255.255.255 
+		#
+
+- 配置sham link
+
+		#
+		ospf 2 vpn-instance test
+		 area 0.0.0.0 
+		  sham-link 5.1.1.1 2.1.1.1
+		#
+
+![](pics/20210714204232.png)
+
+![](pics/20210714204306.png)
+
+
+### OSPF双归PE的环路实验演示 ###
+
+![](pics/20210717105313.png)
+
+- 完成MPLS VPN建立后，CE间可正常通信
+
+![](pics/20210717112102.png)
+
+![](pics/20210717112124.png)
+
+- R2配置down bit位抑制，接收到的lsdb仍然存在dn比特，但忽视
+
+		#
+		ospf 2 vpn-instance test
+		 dn-bit-check disable summary             
+		#
+
+- 此时因为来自R3的路由MED值小于来自R2的，R1选路仍然正确，形成次优路径
+
+![](pics/20210717150059.png)
+
+![](pics/20210717145849.png)
+
+
+
+- 修改bgp路由优先级，使得R1去往7.1.1.1路由下一跳通过MP-BGP指向R2
+
+		#
+		 # 
+		 ipv4-family vpnv4
+		  peer 2.1.1.1 preferred-value 100 
+		#
+
+
+![](pics/20210717112017.png)
+
+![](pics/20210717112348.png)
+
+![](pics/20210717112404.png)
+
+- 产生环路
+
+![](pics/20210717112434.png)
+
+![](pics/20210717150337.png)
+
+
+### BGP SoO实验 ###
+
+
+
+- 手动修改BGP路由优先级，形成次优路径
+
+![](pics/20210717162944.png)
+
+![](pics/20210717163029.png)
+
+- 双归PE在VRF内开启SoO
+
+		#
+		 #
+		 ipv4-family vpn-instance test 
+		  peer 15.1.1.5 soo 100:56
+		#
+
+- R1停止向AR5传递CE内路由，消除次优路径
+
+![](pics/20210717163155.png)
+
+### 复杂VPN之Overlapping VPN ###
+
+![](pics/20210718090101.png)
+
+AR5、AR7为VPN A spoken站点，AR3为VPN A Central站点，AR4、AR6为VPN B spoken站点，AR3为VPN B Central站点，AR1、AR2为骨干网；
+
+要求：同一VPN内仅可互访，VPN Central站点间可互访。
+
+通过对RT值import及export的配置，实现路由发布控制
+
+![](pics/20210718095306.png)
+
+![](pics/20210718095336.png) 
+
+### 复杂VPN之Central Services ###
+
+要求：CE spoken站点访问Central站点业务，CE spoken站点不能互访，Central间可以互访
+
+![](pics/20210718141324.png)
+
+![](pics/20210718141343.png)
+	
+### 复杂VPN之Managed Network ###
+
+要求：控制路由引入
+
+- CE5仅export 32位主机路由
+
+		#
+		ip ip-prefix loop index 10 permit 0.0.0.0 0 greater-equal 32 less-equal 32
+		#
+		route-policy rt-set permit node 10 
+		 if-match ip-prefix loop 
+		 apply extcommunity rt 100:5 additive 
+		#
+		ip vpn-instance r5                        
+		 ipv4-family
+		  export route-policy rt-set
+		#
+
+![](pics/20210718165210.png)
+
+- CE3仅import 32位主机路由
+
+		#
+		route-policy per32 permit node 10 
+		 if-match ip-prefix loop 
+		#
+		ip vpn-instance r3
+		 ipv4-family
+		  import route-policy per32
+		#
+
+![](pics/20210718165337.png)
 
 
 ### 跨域VPN ###
